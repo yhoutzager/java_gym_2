@@ -97,7 +97,7 @@ abstract class MineSweeper {
         } while (changeCount > 0);
     }
 
-    private void printGame(String[][] str) {
+    protected void printGame(String[][] str) {
         for (int y = 1; y < str.length - 1; y++) {
             System.out.println("");
             for (int x = 1; x < str[y].length - 1; x++) {

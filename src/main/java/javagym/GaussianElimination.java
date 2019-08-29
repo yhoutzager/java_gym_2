@@ -1,25 +1,3 @@
-/*
- U mag de onderstaande melding niet verwijderen of wijzigen.
- You are not allowed to delete or change the statement below.
-
- Copyright (c) Quinity B.V. 2001 - 2019
-
- Intellectueel eigendom van Quinity B.V.
- Intellectual property of Quinity B.V.
-
- Deze documentatie en de programmatuur die door deze documentatie beschreven wordt mogen niet worden gebruikt door
- andere applicaties dan waarvoor Quinity voorafgaand schriftelijk toestemming heeft gegeven. Deze documentatie en de
- programmatuur die door deze documentatie beschreven wordt mogen niet worden gebruikt door andere organisaties dan
- waarvoor Quinity voorafgaand schriftelijk toestemming heeft gegeven. Deze documentatie en de programmatuur die door
- deze documentatie beschreven wordt mogen niet openbaar worden gemaakt door middel van druk, fotokopie, microfilm of
- op welke andere wijze ook, zonder voorafgaande schriftelijke toestemming van Quinity B.V.
-
- This documentation and the software / source code that is described by this documentation may not be used by
- applications without prior written permission by Quinity B.V. This documentation and the software / source code
- that is described by this documentation may not be used by organisations without written prior permission by
- Quinity B.V. This documentation and the software / source code that is described by this documentation may not be made
- public by means of print, (photo)copy, microfilm, or any other method without prior written permission by Quinity B.V.
-*/
 package javagym;
 
 /**
@@ -47,9 +25,10 @@ package javagym;
 public class GaussianElimination {
 	private static final double EPSILON = 1e-8;
 
-	private final int m;      // number of rows
-	private final int n;      // number of columns
-	private int[][] a;     // m-by-(n+1) augmented matrix
+	private final int m;            // number of rows
+	private final int n;            // number of columns
+	private int[][] a;            	// m-by-(n+1) augmented matrix
+	private Integer[] x;
 
 	/**
 	 * Solves the linear system of equations <em>Ax</em> = <em>b</em>,
@@ -77,9 +56,7 @@ public class GaussianElimination {
 
 		forwardElimination();
 
-		//TODO YH: hier Integer[]?
-		Integer[] x = primal();
-
+		x = primal();
 	}
 
 	// forward elimination
@@ -131,31 +108,94 @@ public class GaussianElimination {
 	 * <em>Ax</em> = <em>b</em>; {@code null} if no such solution
 	 */
 	public Integer[] primal() {
-		//TODO YH: regels voor oplossing specifieke matrix
 
 		// back substitution
 		Integer[] x = new Integer[n];
-		for (int i = Math.min(n - 1, m - 1); i >= 0; i--) {
-			int sum = 0;
-			for (int j = i + 1; j < n; j++) {
-				sum += a[i][j] * x[j];
+		boolean allSolved = false;
+		boolean[] rowSolved = new boolean[m];
+		CHECK: while (!allSolved) {
+			for (int i = 0; i < x.length; i++) {
+				if (x[i] == null) {
+					continue;
+				}
+
+				if (x[i] == 0) {
+					for (int j =0; j < m; j++) {
+						a[j][i] = 0;
+					}
+				} else if (x[i] == 1) {
+					for (int j =0; j < m; j++) {
+						if (a[j][i] > 0) {
+							a[j][n] -= a[j][i];
+							a[j][i] = 0;
+						}
+					}
+				} else {
+					throw new IllegalArgumentException();
+				}
 			}
 
-			if (Math.abs(a[i][i]) > EPSILON)
-				x[i] = (a[i][n] - sum) / a[i][i];
-			else if (Math.abs(a[i][n] - sum) > EPSILON)
-				return null;
+			for (int i = 0; i < m; i++) {
+				if (rowSolved[i]) {
+					continue;
+				}
+				int bi = a[i][n];
+				int countPos = 0;
+				int countNeg = 0;
+				for (int j = 0; j < n; j++) {
+					if (a[i][j] < 0) {
+						countNeg += a[i][j];
+					} else if (a[i][j] > 0) {
+						countPos += a[i][j];
+					}
+				}
+
+				if (bi != 0 && bi == countPos) {
+					// all positives are mines
+					for (int j = 0; j < n; j++) {
+						if (a[i][j] > 0) {
+							x[j] = 1;
+						}
+					}
+					rowSolved[i] = true;
+					continue CHECK;
+				} else if (bi != 0 && bi == countNeg) {
+					// all negatives are mines
+					for (int j = 0; j < n; j++) {
+						if (a[i][j] < 0) {
+							x[j] = 1;
+						}
+					}
+					rowSolved[i] = true;
+					continue CHECK;
+				} else if (bi == 0 && countPos != 0 && countNeg == 0) {
+					// all positives are safe
+					for (int j = 0; j < n; j++) {
+						if (a[i][j] > 0) {
+							x[j] = 0;
+						}
+					}
+					rowSolved[i] = true;
+					continue CHECK;
+				} else if (bi == 0 && countPos == 0 && countNeg != 0) {
+					// all negatives are safe
+					for (int j = 0; j < n; j++) {
+						if (a[i][j] < 0) {
+							x[j] = 0;
+						}
+					}
+					rowSolved[i] = true;
+					continue CHECK;
+				}
+			}
+
+			allSolved = true;
 		}
 
-		// redundant rows
-		for (int i = n; i < m; i++) {
-			double sum = 0.0;
-			for (int j = 0; j < n; j++) {
-				sum += a[i][j] * x[j];
-			}
-			if (Math.abs(a[i][n] - sum) > EPSILON)
-				return null;
-		}
+		return x;
+	}
+
+	public Integer[] getSolution() {
 		return x;
 	}
 }

@@ -79,45 +79,22 @@ public class YourStrategy extends MineSweeper {
 			}
 		}
 
-
-
-		// Check islands
-		// Islands are known points that are connected via neighbouring unknown points.
-		// Probably best some recursive path filling a set with points.
-		// # of known points is the number of equations
-		// # of unknown neighbours is the number of variables. (think about known mines and how this affects this.
-		// prob best to check if island gives new results before checking next island.
-
-
-		// Make equations. Ax = b
-		// The array sizes for A and b are known from the island mapping.
-		// Think about how the coordinates match up to the equation variables (x1, x2, x3, x4...)
-
-		/*
-		https://massaioli.wordpress.com/2013/01/12/solving-minesweeper-with-matricies/comment-page-1/
-		0. Check list with safe spaces for easy next point
-		1. Make a list with islands
-		2. While no clickable found for each island
-		2.1. Make a list of fields which might be clicked
-		2.2. Make the equations using the potential fields
-		2.3 Process equations
-		2.4. if answer found abort
-		3. if no answer found guess somewhere (think of algorithm).
-
-		Safe known mine locations.
-		Safe known safe spaces.
-		 */
-//		for (Point mine : mines) {
-//			System.out.print(mine + "\t");
-//		}
-//		System.out.println();
-
+		//TODO YH: Algorithme for guessing. Checken islands for knowns unknown ratio thingy.
 		List<Point> guessPoints = new ArrayList<>();
 		for (Island island : islands) {
 			guessPoints.addAll(island.unknowns);
 		}
-		return guessPoints.get((int)Math.round(Math.random() * guessPoints.size())).returnValue();
-//		throw new UnsupportedOperationException("No further implementation!");
+		if (guessPoints.size() != 0) {
+			return guessPoints.get(0).returnValue();
+		}
+		for (int y = 0; y < fieldHeight; y++) {
+			for (int x = 0; x < fieldWidth; x++) {
+				if (unknown.equals(node(x, y)) && !mines.contains(new Point(x, y))) {
+					return (new Point(x, y)).returnValue();
+				}
+			}
+		}
+		throw new IllegalStateException();
 	}
 
 	private boolean checkPoints() {
@@ -218,12 +195,6 @@ public class YourStrategy extends MineSweeper {
 			b[i] = mineNumber;
 		}
 
-		lsolve(A, b);
-
-		// verwerking (volgorde?)
-		// Checken of er al opgeloste zijn (Zo ja verwerk en maak nieuwe kleinere array? of verder gaan met grote en - waardes?)
-		// Rij manipulatie, zou ook
-
 //		System.out.print("\nb = Ax");
 //		for (int i = 0; i < b.length; i++) {
 //			System.out.print("\n" + b[i] + " | ");
@@ -233,46 +204,15 @@ public class YourStrategy extends MineSweeper {
 //		}
 //		System.out.println("\n");
 
-		for (int i = 0; i < A.length; i++) {
-			int bi = b[i];
-			int countPos = 0;
-			int countNeg = 0;
-			for (int j = 0; j < A[i].length; j++) {
-				if (A[i][j] < 0) {
-					countNeg += A[i][j];
-				} else if (A[i][j] > 0) {
-					countPos += A[i][j];
-				}
-			}
 
-			if (bi != 0 && bi == countPos) {
-				// All positives are mines
-				for (int j = 0; j < A[i].length; j++) {
-					if (A[i][j] > 0) {
-						mines.add(island.unknowns.get(j));
-					}
-				}
-			} else if (bi != 0 && bi == countNeg) {
-				// All negatives are mines
-				for (int j = 0; j < A[i].length; j++) {
-					if (A[i][j] < 0) {
-						mines.add(island.unknowns.get(j));
-					}
-				}
-			} else if (bi == 0 && countPos != 0 && countNeg == 0) {
-				// All positives are safe
-				for (int j = 0; j < A[i].length; j++) {
-					if (A[i][j] > 0) {
-						safePoints.add(island.unknowns.get(j));
-					}
-				}
-			} else if (bi == 0 && countPos == 0 && countNeg != 0) {
-				// All negatives are safe
-				for (int j = 0; j < A[i].length; j++) {
-					if (A[i][j] < 0) {
-						safePoints.add(island.unknowns.get(j));
-					}
-				}
+		GaussianElimination gaussianElimination = new GaussianElimination(A, b);
+		Integer[] solution = gaussianElimination.getSolution();
+
+		for (int i = 0; i < solution.length; i++) {
+			if (Integer.valueOf(0).equals(solution[i])) {
+				safePoints.add(island.unknowns.get(i));
+			} else if (Integer.valueOf(1).equals(solution[i])) {
+				mines.add(island.unknowns.get(i));
 			}
 		}
 	}
@@ -318,35 +258,6 @@ public class YourStrategy extends MineSweeper {
 		}
 	}
 
-//	private void processSurroundingUnknowns(Point point, List<Point> knowns, List<Point> unknowns) {
-//		List<Point> newUnknowns = new ArrayList<>();
-//		for (int yOffset = -1; yOffset <= 1; yOffset++) {
-//			for (int xOffset = -1; xOffset <= 1; xOffset++) {
-//				// TODO: stop island bij bom afscheiding
-//				// TODO: check voor randen
-//				if (unknown.equals(node(point.x + xOffset, point.y + yOffset))) {
-//					Point newPoint = new Point(point.x + xOffset,point.y + yOffset);
-//					if (!unknowns.contains(newPoint)) {
-//						newUnknowns.add(newPoint);
-//						unknowns.add(newPoint);
-//					}
-//				}
-//			}
-//		}
-//		for (Point newPoint : newUnknowns) {
-//			// TODO: als node een mine is propageerd het island niet.
-//			processSurroundingKnowns(newPoint, knowns, unknowns);
-//		}
-//	}
-
-	private boolean isUnknown(int x, int y) {
-		if (x < 0 || x >= fieldWidth
-				|| y < 0 || y >= fieldHeight)  {
-			throw new IllegalArgumentException();
-		}
-		return unknown.equals(node(x, y));
-	}
-
 	private String node(int x, int y) {
 		return display[x + 1][y + 1];
 	}
@@ -363,51 +274,6 @@ public class YourStrategy extends MineSweeper {
 			}
 		}
 		throw new IllegalArgumentException();
-	}
-
-	private Integer[] lsolve(int[][] A, int[] b) {
-		int n = Math.min(b.length,A[0].length);
-
-		Integer[] solution = new Integer[A[0].length];
-
-		for (int p = 0; p < n; p++) {
-
-			// find pivot row and swap
-			int max = p;
-			for (int i = p + 1; i < n; i++) {
-				if (Math.abs(A[i][p]) > Math.abs(A[max][p])) {
-					max = i;
-				}
-			}
-			int[] temp = A[p];
-			A[p] = A[max];
-			A[max] = temp;
-			int t = b[p];
-			b[p] = b[max];
-			b[max] = t;
-
-			// singular or nearly singular
-			if (p >=  A[p].length || Math.abs(A[p][p]) == 0) {
-				continue;
-			}
-
-			// pivot within A and b
-			for (int i = p + 1; i < n; i++) {
-				if (A[i][p] == 0) {
-					continue;
-				}
-				int alpha = A[i][p] / A[p][p];
-				b[i] -= alpha * b[p];
-				for (int j = p; j < A.length; j++) {
-					A[i][j] -= alpha * A[p][j];
-				}
-			}
-
-			//TODO YH: fill solution matrix, but how?
-
-		}
-
-		return solution;
 	}
 
 	private class Point {
@@ -472,5 +338,26 @@ public class YourStrategy extends MineSweeper {
 	@Override
 	void print() {
 
+	}
+
+	@Override
+	protected void printGame(String[][] str) {
+		System.out.print(" |");
+		for(int i = 0; i < str[0].length; i++) {
+			System.out.print(" " + i + " |");
+		}
+		for(int y = 1; y < str[0].length - 1; y++) {
+			System.out.print("\n" + (y-1));
+			for(int x = 1; x < str.length ; x++) {
+				System.out.print("|");
+				// Prints out content of each tile.
+				if (mines.contains(new Point(x-1,y-1))) {
+					System.out.print(" * ");
+				} else {
+					System.out.print(str[x][y]);
+				}
+			}
+		}
+		System.out.println("");
 	}
 }
