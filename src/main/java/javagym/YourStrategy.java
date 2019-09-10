@@ -1,5 +1,7 @@
 package javagym;
 
+import org.apache.commons.lang3.tuple.MutablePair;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,8 +24,8 @@ public class YourStrategy extends MineSweeper {
 		// '?' is undiscovered and otherwise it will have numbers indicating the standard minesweeper gameplay.
 
 		// First turn
-		if (unknown.equals(display[fieldWidth / 2][fieldHeight / 2])) {
-			return new int[]{fieldWidth / 2, fieldHeight / 2};
+		if (unknown.equals(display[2][2])) {
+			return new int[]{2, 2};
 		}
 
 		// If previous calculations found safe points return those first.
@@ -79,22 +81,37 @@ public class YourStrategy extends MineSweeper {
 			}
 		}
 
-		//TODO YH: Algorithme for guessing. Checken islands for knowns unknown ratio thingy.
-		List<Point> guessPoints = new ArrayList<>();
+		List<Point> borderPoints = new ArrayList<>();
 		for (Island island : islands) {
-			guessPoints.addAll(island.unknowns);
+			borderPoints.addAll(island.knowns);
 		}
-		if (guessPoints.size() != 0) {
-			return guessPoints.get(0).returnValue();
+		if (borderPoints.size() != 0) {
+			List<MutablePair<Point, Double>> guessPoints = new ArrayList<>();
+			for (Point point : borderPoints) {
+				processGuessing(point, guessPoints);
+			}
+			MutablePair<Point, Double> smallestPair = guessPoints.get(0);
+			for (MutablePair<Point, Double> pair : guessPoints) {
+				if (pair.getRight() < smallestPair.getRight()) {
+					smallestPair = pair;
+				}
+			}
+			if (smallestPair.getRight() < 0.4) {
+				return smallestPair.getLeft().returnValue();
+			}
 		}
+
+		List<Point> randomPoint = new ArrayList<>();
 		for (int y = 0; y < fieldHeight; y++) {
 			for (int x = 0; x < fieldWidth; x++) {
 				if (unknown.equals(node(x, y)) && !mines.contains(new Point(x, y))) {
-					return (new Point(x, y)).returnValue();
+//					return (new Point(x,y)).returnValue();
+					randomPoint.add(new Point(x,y));
 				}
 			}
 		}
-		throw new IllegalStateException();
+		return randomPoint.get((int)Math.floor(Math.random() * randomPoint.size())).returnValue();
+//		throw new IllegalStateException();
 	}
 
 	private boolean checkPoints() {
@@ -195,15 +212,6 @@ public class YourStrategy extends MineSweeper {
 			b[i] = mineNumber;
 		}
 
-//		System.out.print("\nb = Ax");
-//		for (int i = 0; i < b.length; i++) {
-//			System.out.print("\n" + b[i] + " | ");
-//			for (int j = 0; j < A[0].length; j++) {
-//				System.out.print(A[i][j] + " ");
-//			}
-//		}
-//		System.out.println("\n");
-
 
 		GaussianElimination gaussianElimination = new GaussianElimination(A, b);
 		Integer[] solution = gaussianElimination.getSolution();
@@ -274,6 +282,42 @@ public class YourStrategy extends MineSweeper {
 			}
 		}
 		throw new IllegalArgumentException();
+	}
+
+	private void processGuessing(Point point, List<MutablePair<Point, Double>> points) {
+		int mineNumber = determineMineNumber(point);
+		List<Point> newPoints = new ArrayList<>();
+		for (int yOffset = -1; yOffset <= 1; yOffset++) {
+			for (int xOffset = -1; xOffset <= 1; xOffset++) {
+
+				int x = point.x + xOffset;
+				int y = point.y + yOffset;
+				if (x < 0 || x >= fieldWidth
+						|| y < 0 || y >= fieldHeight) {
+					continue;
+				}
+
+				Point checkPoint = new Point(x,y);
+				if (mines.contains(checkPoint)) {
+					mineNumber--;
+					continue;
+				}
+
+				if (unknown.equals(node(checkPoint))) {
+					newPoints.add(checkPoint);
+				}
+			}
+		}
+		Double fraction = 1.0 * mineNumber / newPoints.size();
+		TOP: for (Point newPoint : newPoints) {
+			for (MutablePair<Point, Double> pair : points) {
+				if (newPoint.equals(pair.getLeft())) {
+					pair.setValue(Math.max(pair.getRight(), fraction));
+					continue TOP;
+				}
+			}
+			points.add(MutablePair.of(newPoint, fraction));
+		}
 	}
 
 	private class Point {
